@@ -1,0 +1,6 @@
+apache-airflow-task-sdk>=1.1.5
+pandas>=2.3.3
+numpy>=2.3.5
+python-dotenv>=1.2.1
+twelvedata>=1.2.25
+supabase>=2.27.0
