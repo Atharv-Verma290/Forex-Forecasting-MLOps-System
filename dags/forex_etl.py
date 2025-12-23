@@ -18,7 +18,12 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-@dag(dag_id="forex_pipeline_dag", default_args=default_args)
+@dag(
+        dag_id="forex_pipeline_dag", 
+        default_args=default_args,
+        start_date=datetime(2025, 12, 23),
+        schedule='@daily'
+    )
 def forex_etl_pipeline():
 
     @task
@@ -71,14 +76,6 @@ def forex_etl_pipeline():
     def transform_data(raw_table):
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
         print("Database connected successfully.")
-        # cur = conn.cursor()
-
-        # query=f"""
-        # SELECT * FROM {raw_table};
-        # """
-        # cur.execute(query)
-        # raw_data = cur.fetchall()
-        # raw_data = pd.DataFrame(raw_data, columns=['id', 'datetime', 'open', 'high', 'low', 'close'])
 
         raw_data = pd.read_sql(
             f"SELECT * FROM {raw_table} ORDER BY datetime DESC;",
@@ -114,16 +111,6 @@ def forex_etl_pipeline():
         """
         cur.execute(create_sql)
         conn.commit()
-
-        # buffer = StringIO()
-        # df_features.to_csv(buffer, index=False, header=False)
-        # buffer.seek(0)
-
-        # cur.copy_expert(
-        #     f"COPY {staging_table} FROM STDIN WITH CSV",
-        #     buffer
-        # )
-        # conn.commit()
 
         tuples = [tuple(x) for x in transformed_data.to_numpy()]
         cols = ', '.join(list(transformed_data.columns))
