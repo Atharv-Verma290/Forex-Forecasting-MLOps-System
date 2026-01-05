@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "apache-airflow-task-sdk>=1.1.5",
+    "fastapi>=0.117.1",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.8",
     "numpy>=2.3.5",
@@ -17,4 +18,5 @@ dependencies = [
     "seaborn>=0.13.2",
     "supabase>=2.27.0",
     "twelvedata>=1.2.25",
+    "uvicorn>=0.38.0",
 ]

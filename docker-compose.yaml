@@ -134,6 +134,16 @@ services:
     depends_on:
       app-postgres:
         condition: service_healthy
+
+  model-service:
+    build:
+      context: ./model_service
+      dockerfile: Dockerfile
+    container_name: model_service_container
+    expose:
+      - 8000
+    restart: unless-stopped
+    
         
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
