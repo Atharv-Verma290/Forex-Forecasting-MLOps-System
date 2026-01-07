@@ -1,0 +1,15 @@
+services:
+  model-service:
+    build:
+      context: ../model_service
+      dockerfile: Dockerfile
+    container_name: model_service_container
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - project-network
+
+networks:
+  project-network:
+    external: true
