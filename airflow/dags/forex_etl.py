@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from airflow.sdk import dag, task 
+from airflow.sdk import dag, task
+from airflow.datasets import Dataset
 from data_ingestion import TwelveDataIngestor #type: ignore
 from data_transformation import ForexDataTransformation #type: ignore
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ import pandas as pd
 import numpy as np
 load_dotenv()
 
-
+EUR_USD_FINAL_DATASET = Dataset("postgres://app-postgres:5432/app_db/public/eur_usd_final")
 
 default_args = {
     'owner': 'atharv',
@@ -131,7 +132,7 @@ def forex_etl_pipeline():
 
         return staging_table
 
-    @task 
+    @task(outlets=[EUR_USD_FINAL_DATASET]) 
     def load_data(staging_table):
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
         final_table = "eur_usd_final"

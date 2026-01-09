@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from airflow.sdk import dag, task 
+from airflow.datasets import Dataset
 from dotenv import load_dotenv
+from utility import next_forex_trading_day #type: ignore
 import os
 import psycopg2
 import psycopg2.extras as extras
@@ -8,6 +10,8 @@ import pandas as pd
 import numpy as np
 import requests
 load_dotenv()
+
+EUR_USD_FINAL_DATASET = Dataset("postgres://app-postgres:5432/app_db/public/eur_usd_final")
 
 default_args = {
     'owner': 'atharv',
@@ -18,7 +22,9 @@ default_args = {
 @dag(
         dag_id="forex_prediction_pipeline",
         default_args=default_args,
-        start_date=datetime(2026, 1, 5)
+        start_date=datetime(2026, 1, 5),
+        schedule=[EUR_USD_FINAL_DATASET],
+        catchup=False
     )
 def forex_prediction_pipeline():
 
@@ -61,11 +67,11 @@ def forex_prediction_pipeline():
         """)
         print("Table created successfully.")
         
-        feature_date = datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").date()
-        prediction_date = feature_date + timedelta(days=1)
+        feature_date = datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        prediction_date = next_forex_trading_day(feature_date)
         predicted_direction = data["prediction"]
-        model_name = "Random forest"
-        model_version = "1"
+        model_name = data["model_name"]
+        model_version = data["model_version"]
         
         cols = ("feature_date", "prediction_date", "predicted_direction", "model_name", "model_version")
         values = [(feature_date, prediction_date, predicted_direction, model_name, model_version)]

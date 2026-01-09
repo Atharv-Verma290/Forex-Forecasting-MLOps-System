@@ -8,7 +8,15 @@ from datetime import datetime, timedelta
 import json 
 import joblib
 import mlflow.pyfunc
+from mlflow.tracking import MlflowClient
+
 import os
+
+model_metadata = {
+    "run_id": None,
+    "name": None,
+    "version": None
+}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,14 +28,27 @@ async def lifespan(app: FastAPI):
 
     print(f"Connecting to MLflow at {MLFLOW_TRACKING_URI}...")
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = MlflowClient()
 
     try: 
         global model 
         model = mlflow.pyfunc.load_model(MODEL_URI)
+        
+        model_metadata["run_id"] = model.metadata.run_id
+
+        for rm in client.search_registered_models():
+            for mv in rm.latest_versions:
+                if mv.run_id == model_metadata["run_id"]:
+                    print("Model name:", rm.name)
+                    model_metadata["name"] = rm.name 
+                    print("Version:", mv.version)
+                    model_metadata["version"] = mv.version
+                    print("Stage", mv.current_stage)
+
         print("Champion model loaded", flush=True)
     except Exception as e:
         print(f"Failed to load model: {e}")
-    
+        model_metadata.clear()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -46,7 +67,9 @@ async def predict(request: PredictionInput):
 
     output = {
         "datetime": str(input_df["datetime"].iloc[0]), 
-        "prediction": prediction[0].item()
+        "prediction": prediction[0].item(),
+        "model_name": model_metadata["name"],
+        "model_version": model_metadata["version"]
     }
 
     return JSONResponse(content=output)
