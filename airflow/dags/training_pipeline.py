@@ -39,66 +39,31 @@ def forex_prediction_pipeline():
             preprocessor = ForexDataPreProcessing(input_df)
             train_df, test_df = preprocessor.preprocess_data()
 
-            # create databases
+            # create train table
             table_builder = SQLTableBuilder(TrainTestTableStrategy(tablename="eur_usd_train"))
-            creation_query = table_builder.get_query(df=train_df)
+            creation_query = table_builder.get_create_query(df=train_df)
             cur = conn.cursor()
             cur.execute(creation_query)
             conn.commit()
-
-            table_builder.set_strategy(TrainTestTableStrategy(tablename="eur_usd_test"))
-            creation_query = table_builder.get_query(df=test_df)
-            cur.execute(creation_query)
+            insertion_query, values = table_builder.get_insert_query(data=train_df)
+            extras.execute_values(cur, insertion_query, values)
             conn.commit()
 
-            # add data into databases
+            # create test table
+            table_builder.set_strategy(TrainTestTableStrategy(tablename="eur_usd_test"))
+            creation_query = table_builder.get_create_query(df=test_df)
+            cur.execute(creation_query)
+            conn.commit()
+            insertion_query, values = table_builder.get_insert_query(data=test_df)
+            extras.execute_values(cur, insertion_query, values)
+            conn.commit()
 
             conn.close()
 
         except Exception as e:
             print(e)
         
-    
-    @task 
-    def store_predictions(data):
-        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS eur_usd_predictions (
-                id SERIAL PRIMARY KEY,
-                feature_date DATE NOT NULL UNIQUE,
-                prediction_date DATE,
-                predicted_direction INTEGER,
-                model_name TEXT,
-                model_version TEXT
-            );
-        """)
-        print("Table created successfully.")
-        
-        feature_date = datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        prediction_date = next_forex_trading_day(feature_date)
-        predicted_direction = data["prediction"]
-        model_name = data["model_name"]
-        model_version = data["model_version"]
-        
-        cols = ("feature_date", "prediction_date", "predicted_direction", "model_name", "model_version")
-        values = [(feature_date, prediction_date, predicted_direction, model_name, model_version)]
-        query = f"""
-            INSERT INTO eur_usd_predictions ({', '.join(list(cols))}) VALUES %s
-            ON CONFLICT (feature_date) DO UPDATE SET
-                prediction_date = EXCLUDED.prediction_date,
-                predicted_direction = EXCLUDED.predicted_direction,
-                model_name = EXCLUDED.model_name,
-                model_version = EXCLUDED.model_version;
-        """
-        extras.execute_values(cur, query, values)
-        print("Record(s) added to the database.")
-        conn.commit()
-        conn.close()
-
-        
-    predictions = predict_tomorrow()
-    store_predictions(predictions)
+    data_preprocessing()
     
 prediction_pipeline = forex_prediction_pipeline()
 

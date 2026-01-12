@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from airflow.sdk import dag, task 
 from airflow.datasets import Dataset
 from dotenv import load_dotenv
-from src.utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
+from utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
 import os
 import psycopg2
 import psycopg2.extras as extras
@@ -56,29 +56,21 @@ def forex_prediction_pipeline():
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
 
         table_builder = SQLTableBuilder(PredictionTableStrategy(tablename="eur_usd_predictions"))
-        creation_query = table_builder.get_query()
-
+        creation_query = table_builder.get_create_query()
         cur = conn.cursor()
         cur.execute(creation_query)
         print("Table created successfully.")
         
-        feature_date = datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        prediction_date = next_forex_trading_day(feature_date)
-        predicted_direction = data["prediction"]
-        model_name = data["model_name"]
-        model_version = data["model_version"]
-        
-        cols = ("feature_date", "prediction_date", "predicted_direction", "model_name", "model_version")
-        values = [(feature_date, prediction_date, predicted_direction, model_name, model_version)]
-        query = f"""
-            INSERT INTO eur_usd_predictions ({', '.join(list(cols))}) VALUES %s
-            ON CONFLICT (feature_date) DO UPDATE SET
-                prediction_date = EXCLUDED.prediction_date,
-                predicted_direction = EXCLUDED.predicted_direction,
-                model_name = EXCLUDED.model_name,
-                model_version = EXCLUDED.model_version;
-        """
-        extras.execute_values(cur, query, values)
+        record = {
+            "feature_date": datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
+            "prediction_date": next_forex_trading_day(datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)),
+            "predicted_direction": data["prediction"],
+            "model_name": data["model_name"],
+            "model_version": data["model_version"]
+        }
+    
+        insertion_query, values = table_builder.get_insert_query(data=record)
+        extras.execute_values(cur, insertion_query, values)
         print("Record(s) added to the database.")
         conn.commit()
         conn.close()

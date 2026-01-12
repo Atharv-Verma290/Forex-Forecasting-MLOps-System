@@ -39,25 +39,13 @@ def forex_etl_pipeline():
             print("Database connected successfully.")
             
             table_builder = SQLTableBuilder(RawTableStrategy(tablename="eur_usd_raw"))
-            creation_query = table_builder.get_query()
+            creation_query = table_builder.get_create_query()
             cur = conn.cursor()
             cur.execute(creation_query)            
             print("Table created successfully.")
 
-            cols = ("datetime", "open", "high", "low", "close")
-            values = [
-                (rec["datetime"], rec["open"], rec["high"], rec["low"], rec["close"])
-                for rec in extracted_data
-            ]
-            query = f"""
-            INSERT INTO eur_usd_raw ({', '.join(cols)}) VALUES %s
-            ON CONFLICT (datetime) DO UPDATE SET
-                open = EXCLUDED.open,
-                high = EXCLUDED.high,
-                low = EXCLUDED.low,
-                close = EXCLUDED.close;    
-            """
-            extras.execute_values(cur, query, values)
+            insertion_query, values = table_builder.get_insert_query(data=extracted_data)
+            extras.execute_values(cur, insertion_query, values)
             print("Record(s) added to the database.")
             conn.commit()
             conn.close()
@@ -83,16 +71,13 @@ def forex_etl_pipeline():
         cur = conn.cursor()
         staging_table = "eur_usd_staging"
         table_builder = SQLTableBuilder(StagingTableStrategy(tablename="eur_usd_staging"))
-        creation_query = table_builder.get_query(df=transformed_data)
-
+        creation_query = table_builder.get_create_query(df=transformed_data)
         cur.execute(creation_query)
         conn.commit()
 
-        tuples = [tuple(x) for x in transformed_data.to_numpy()]
-        cols = ', '.join(list(transformed_data.columns))
-        insertion_query = "INSERT INTO %s (%s) VALUES %%s" % (staging_table, cols)
+        insertion_query, values = table_builder.get_insert_query(data=transformed_data)
         try:
-            extras.execute_values(cur, insertion_query, tuples)
+            extras.execute_values(cur, insertion_query, values)
             conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
             print("Error: %s" % error)
@@ -112,7 +97,7 @@ def forex_etl_pipeline():
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
 
         table_builder = SQLTableBuilder(FinalTableStrategy(tablename="eur_usd_final", staging_tablename=staging_table))
-        creation_query = table_builder.get_query()
+        creation_query = table_builder.get_create_query()
 
         cur = conn.cursor()
         cur.execute(creation_query)
