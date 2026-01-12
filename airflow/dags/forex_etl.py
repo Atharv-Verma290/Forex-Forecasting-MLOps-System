@@ -3,6 +3,7 @@ from airflow.sdk import dag, task
 from airflow.datasets import Dataset
 from data_ingestion import TwelveDataIngestor #type: ignore
 from data_transformation import ForexDataTransformation #type: ignore
+from utility import SQLTableBuilder, RawTableStrategy, StagingTableStrategy, FinalTableStrategy #type: ignore
 from dotenv import load_dotenv
 import os
 import psycopg2
@@ -37,17 +38,10 @@ def forex_etl_pipeline():
             conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
             print("Database connected successfully.")
             
+            table_builder = SQLTableBuilder(RawTableStrategy(tablename="eur_usd_raw"))
+            creation_query = table_builder.get_query()
             cur = conn.cursor()
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS eur_usd_raw(
-                id SERIAL PRIMARY KEY,
-                datetime DATE NOT NULL UNIQUE,
-                open NUMERIC,
-                high NUMERIC,
-                low NUMERIC,
-                close NUMERIC
-            ); 
-            """)            
+            cur.execute(creation_query)            
             print("Table created successfully.")
 
             cols = ("datetime", "open", "high", "low", "close")
@@ -88,29 +82,10 @@ def forex_etl_pipeline():
         
         cur = conn.cursor()
         staging_table = "eur_usd_staging"
+        table_builder = SQLTableBuilder(StagingTableStrategy(tablename="eur_usd_staging"))
+        creation_query = table_builder.get_query(df=transformed_data)
 
-        cur.execute(f"DROP TABLE IF EXISTS {staging_table};")
-
-        columns_sql = []
-        for col, dtype in transformed_data.dtypes.items():
-            if col == "id":
-                sql_type = "SERIAL PRIMARY KEY"
-            elif col == "datetime":
-                sql_type = "DATE NOT NULL UNIQUE"
-            elif "float" in str(dtype):
-                sql_type = "NUMERIC"
-            elif "int" in str(dtype):
-                sql_type = "INTEGER"
-            else:
-                sql_type = "TEXT"
-            columns_sql.append(f"{col} {sql_type}")
-        
-        create_sql = f"""
-            CREATE TABLE {staging_table} (
-                {', '.join(columns_sql)}
-            );
-        """
-        cur.execute(create_sql)
+        cur.execute(creation_query)
         conn.commit()
 
         tuples = [tuple(x) for x in transformed_data.to_numpy()]
@@ -135,15 +110,12 @@ def forex_etl_pipeline():
     @task(outlets=[EUR_USD_FINAL_DATASET]) 
     def load_data(staging_table):
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
-        final_table = "eur_usd_final"
-        swap_query = f"""
-            BEGIN;
-            DROP TABLE IF EXISTS {final_table};
-            ALTER TABLE {staging_table} RENAME TO {final_table};
-            COMMIT;
-        """
+
+        table_builder = SQLTableBuilder(FinalTableStrategy(tablename="eur_usd_final", staging_tablename=staging_table))
+        creation_query = table_builder.get_query()
+
         cur = conn.cursor()
-        cur.execute(swap_query)
+        cur.execute(creation_query)
         conn.commit()
         cur.close()
         conn.close()

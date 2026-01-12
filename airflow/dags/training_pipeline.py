@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from airflow.sdk import dag, task 
-from airflow.datasets import Dataset
 from dotenv import load_dotenv
-from src.utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
+from data_preprocessing import ForexDataPreProcessing #type: ignore
+from utility import SQLTableBuilder, TrainTestTableStrategy #type: ignore
 import os
 import psycopg2
 import psycopg2.extras as extras
@@ -11,7 +11,6 @@ import numpy as np
 import requests
 load_dotenv()
 
-EUR_USD_FINAL_DATASET = Dataset("postgres://app-postgres:5432/app_db/public/eur_usd_final")
 
 default_args = {
     'owner': 'atharv',
@@ -20,46 +19,60 @@ default_args = {
 }
 
 @dag(
-        dag_id="forex_prediction_pipeline",
+        dag_id="forex_training_pipeline",
         default_args=default_args,
-        start_date=datetime(2026, 1, 5),
-        schedule=[EUR_USD_FINAL_DATASET],
-        catchup=False
+        start_date=datetime(2026, 1, 12),
+        schedule='@weekly',
     )
 def forex_prediction_pipeline():
 
     @task
-    def predict_tomorrow():
-        API_URL = "http://model-service:8000/predict_forex"
+    def data_preprocessing():
         try:
             conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
             print("Database connected successfully")
-            query = """SELECT * FROM eur_usd_final ORDER BY datetime DESC LIMIT 1;"""
+            query = """SELECT * FROM eur_usd_final ORDER BY datetime DESC;"""
             input_df = pd.read_sql(query, conn)
-            conn.close()
+            
             print("Input data retrieved: ", input_df)
 
-            payload = {
-                "input_data": input_df.to_json()
-            }
-            response = requests.post(API_URL, json=payload)
-            data = response.json()
-            print("Got the model service response: ")
-            print(data)
+            preprocessor = ForexDataPreProcessing(input_df)
+            train_df, test_df = preprocessor.preprocess_data()
+
+            # create databases
+            table_builder = SQLTableBuilder(TrainTestTableStrategy(tablename="eur_usd_train"))
+            creation_query = table_builder.get_query(df=train_df)
+            cur = conn.cursor()
+            cur.execute(creation_query)
+            conn.commit()
+
+            table_builder.set_strategy(TrainTestTableStrategy(tablename="eur_usd_test"))
+            creation_query = table_builder.get_query(df=test_df)
+            cur.execute(creation_query)
+            conn.commit()
+
+            # add data into databases
+
+            conn.close()
+
         except Exception as e:
             print(e)
         
-        return data 
     
     @task 
     def store_predictions(data):
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
-
-        table_builder = SQLTableBuilder(PredictionTableStrategy(tablename="eur_usd_predictions"))
-        creation_query = table_builder.get_query()
-
         cur = conn.cursor()
-        cur.execute(creation_query)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS eur_usd_predictions (
+                id SERIAL PRIMARY KEY,
+                feature_date DATE NOT NULL UNIQUE,
+                prediction_date DATE,
+                predicted_direction INTEGER,
+                model_name TEXT,
+                model_version TEXT
+            );
+        """)
         print("Table created successfully.")
         
         feature_date = datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
