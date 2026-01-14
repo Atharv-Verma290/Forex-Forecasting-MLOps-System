@@ -3,12 +3,11 @@ from airflow.sdk import dag, task
 from dotenv import load_dotenv
 from data_preprocessing import ForexDataPreProcessing #type: ignore
 from utility import SQLTableBuilder, TrainTestTableStrategy #type: ignore
-import os
+from orchestrator import TrainingOrchestrator
 import psycopg2
 import psycopg2.extras as extras
 import pandas as pd
-import numpy as np
-import requests
+
 load_dotenv()
 
 
@@ -26,7 +25,7 @@ default_args = {
     )
 def forex_prediction_pipeline():
 
-    @task
+    @task(multiple_outputs=True)
     def data_preprocessing():
         try:
             conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
@@ -57,13 +56,26 @@ def forex_prediction_pipeline():
             insertion_query, values = table_builder.get_insert_query(data=test_df)
             extras.execute_values(cur, insertion_query, values)
             conn.commit()
-
             conn.close()
+
+            return {"train_dataset": "eur_usd_train", "test_dataset": "eur_usd_test"}
 
         except Exception as e:
             print(e)
+
+    @task
+    def model_training(datasets):
+        train_data = datasets["train_dataset"]
+        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+        print("Database connected successfully")
+        query = f"SELECT * FROM {train_data} ORDER BY datetime DESC;"
+        train_df = pd.read_sql(query, conn)
         
-    data_preprocessing()
+        orchestrator = TrainingOrchestrator(train_df)
+        best_model_dict = orchestrator.run()
+        
+    datasets = data_preprocessing()
+    model_training(datasets)
     
 prediction_pipeline = forex_prediction_pipeline()
 

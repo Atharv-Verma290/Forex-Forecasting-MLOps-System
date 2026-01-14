@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple, Union
+import numpy as np
 import pandas as pd
+from sklearn.metrics import precision_score
+from sklearn.model_selection import TimeSeriesSplit
 
 def next_forex_trading_day(feature_date_utc: datetime) -> datetime.date:
     """
@@ -15,7 +18,28 @@ def next_forex_trading_day(feature_date_utc: datetime) -> datetime.date:
     days_to_add = 2 if weekday == 5 else 1
     
     return (feature_date_utc + timedelta(days=1)).date()
-    
+
+
+def cross_validate_model(classifier, X, y):
+    tscv = TimeSeriesSplit(
+        n_splits=5,
+        test_size=300,
+        gap=1
+        )
+    precision_scores = []
+
+    for train_idx, val_idx in tscv.split(X):
+        X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        classifier.fit(X=X_tr, y=y_tr)
+        preds = classifier.predict(X_val)
+        fold_score = precision_score(y_val, preds, zero_division=0)
+        precision_scores.append(fold_score)
+
+    return np.mean(precision_scores), np.std(precision_scores)
+
+
 ########################
 # SQL Query generators
 ########################
