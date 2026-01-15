@@ -40,6 +40,29 @@ def cross_validate_model(classifier, X, y):
     return np.mean(precision_scores), np.std(precision_scores)
 
 
+def suggest_params(trial, param_space: dict):
+    params = {}
+    for name, spec in param_space.items():
+        kind = spec[0]
+
+        if kind == 'int':
+            _, low, high = spec
+            params[name] = trial.suggest_int(name, low, high)
+
+        elif kind == "float":
+            _, low, high = spec
+            params[name] = trial.suggest_float(name, low, high)
+        
+        elif kind == "categorical":
+            _, choices = spec
+            params[name] = trial.suggest_categorical(name, choices)
+
+        else:
+            raise ValueError(f"Unknown param type: {kind}")
+    
+    return params
+
+
 ########################
 # SQL Query generators
 ########################

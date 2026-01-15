@@ -11,7 +11,7 @@ class Model(ABC):
         self.model = None
 
     @abstractmethod
-    def build_model(self):
+    def build_model(self, params: dict | None = None):
         pass 
 
     @abstractmethod
@@ -23,14 +23,21 @@ class Model(ABC):
         pass 
 
 class RandomForestModel(Model):
-    param_grid = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [5, 10, 15],
-        'min_samples_split': [2, 5]
+    param_space = {
+        'n_estimators': ('int', 50, 200),
+        'max_depth': ('int', 5, 15),
+        'min_samples_split': ('int', 2, 5)
     }
 
-    def build_model(self):
-        self.model = RandomForestClassifier()
+    default_params = {
+        'n_estimators': 100,
+        'max_depth': 5,
+        'min_samples_split': 2
+    }
+
+    def build_model(self, params: dict | None = None):
+        params = params or self.default_params
+        self.model = RandomForestClassifier(**params)
     
     def fit(self, X, y):
         self.model.fit(X, y)
@@ -40,7 +47,7 @@ class RandomForestModel(Model):
     
 
 class LogisticRegressionModel(Model):
-    def build_model(self):
+    def build_model(self, params: dict | None = None):
         self.model = LogisticRegression()
 
     def fit(self, X, y):
@@ -63,5 +70,4 @@ class ModelFactory:
             print(f"Unsupported model_type: {model_type}")
             return 
 
-        model_instance.build_model()
         return model_instance

@@ -23,8 +23,7 @@ default_args = {
 @dag(
         dag_id="forex_pipeline_dag", 
         default_args=default_args,
-        start_date=datetime(2025, 12, 23),
-        schedule='@daily'
+        start_date=datetime(2025, 12, 23)
     )
 def forex_etl_pipeline():
 

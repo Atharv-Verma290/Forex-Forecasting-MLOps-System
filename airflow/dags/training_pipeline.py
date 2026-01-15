@@ -3,7 +3,8 @@ from airflow.sdk import dag, task
 from dotenv import load_dotenv
 from data_preprocessing import ForexDataPreProcessing #type: ignore
 from utility import SQLTableBuilder, TrainTestTableStrategy #type: ignore
-from orchestrator import TrainingOrchestrator
+from orchestrator import TrainingOrchestrator #type: ignore
+from model_tuning import OptunaModelTuner #type: ignore
 import psycopg2
 import psycopg2.extras as extras
 import pandas as pd
@@ -20,8 +21,7 @@ default_args = {
 @dag(
         dag_id="forex_training_pipeline",
         default_args=default_args,
-        start_date=datetime(2026, 1, 12),
-        schedule='@weekly',
+        start_date=datetime(2026, 1, 12)
     )
 def forex_prediction_pipeline():
 
@@ -73,9 +73,26 @@ def forex_prediction_pipeline():
         
         orchestrator = TrainingOrchestrator(train_df)
         best_model_dict = orchestrator.run()
+        print(best_model_dict)
+        return best_model_dict
         
+    @task
+    def hyperparameter_tuning(datasets, best_model_data):
+        train_data = datasets["train_dataset"]
+        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+        print("Database connected successfully")
+        query = f"SELECT * FROM {train_data} ORDER BY datetime DESC;"
+        train_df = pd.read_sql(query, conn)
+
+        tuner = OptunaModelTuner(train_df, best_model_data)
+        tuned_model_data = tuner.start_tuning()
+        print("Tuned model report: ")
+        print(tuned_model_data)
+        return tuned_model_data
+    
     datasets = data_preprocessing()
-    model_training(datasets)
+    best_model_data = model_training(datasets)
+    tuned_model_data = hyperparameter_tuning(datasets, best_model_data)
     
 prediction_pipeline = forex_prediction_pipeline()
 

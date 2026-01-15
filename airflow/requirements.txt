@@ -4,3 +4,4 @@ numpy>=2.3.5
 python-dotenv>=1.2.1
 twelvedata>=1.2.25
 psycopg2-binary>=2.9.11
+optuna>=4.6.0

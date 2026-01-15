@@ -39,6 +39,7 @@ class TrainingOrchestrator():
 
         for model in model_list:
             classifier = ModelFactory.get_model(**model)
+            classifier.build_model()
 
             avg_score, std_score = cross_validate_model(classifier, X, y)
 
@@ -57,6 +58,7 @@ class TrainingOrchestrator():
 
 if __name__ == "__main__":
     df = pd.read_csv("train_sample.csv")
+    df["id"] = 100
     
     orchestrator = TrainingOrchestrator(df=df)
     results = orchestrator.run()
