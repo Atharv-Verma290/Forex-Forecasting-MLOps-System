@@ -63,7 +63,7 @@ def forex_prediction_pipeline():
         except Exception as e:
             print(e)
 
-    @task
+    @task(multiple_outputs=True)
     def model_training(datasets):
         train_data = datasets["train_dataset"]
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
@@ -76,7 +76,7 @@ def forex_prediction_pipeline():
         print(best_model_dict)
         return best_model_dict
         
-    @task
+    @task(multiple_outputs=True)
     def hyperparameter_tuning(datasets, best_model_data):
         train_data = datasets["train_dataset"]
         conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
@@ -90,9 +90,29 @@ def forex_prediction_pipeline():
         print(tuned_model_data)
         return tuned_model_data
     
+    @task(multiple_outputs=True)
+    def train_challenger(datasets, tuned_model_data):
+        train_data = datasets["train_dataset"]
+        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+        print("Database connected successfully")
+        query = f"SELECT * FROM {train_data} ORDER BY datetime DESC;"
+        train_df = pd.read_sql(query, conn)
+
+        orchestrator = TrainingOrchestrator(train_df)
+        challenger_data = orchestrator.train_challenger(tuned_model_data)
+        
+        print(challenger_data)
+        return challenger_data
+
+    @task 
+    def comparison_promotion(datasets):
+        pass
+
+
     datasets = data_preprocessing()
     best_model_data = model_training(datasets)
     tuned_model_data = hyperparameter_tuning(datasets, best_model_data)
+    challenger_data = train_challenger(datasets, tuned_model_data)
     
 prediction_pipeline = forex_prediction_pipeline()
 

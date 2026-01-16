@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+import mlflow.sklearn
 
 
 class Model(ABC):
@@ -21,6 +22,10 @@ class Model(ABC):
     @abstractmethod
     def predict(self, X):
         pass 
+
+    @abstractmethod
+    def log_model(self, registered_model_name: str):
+        pass
 
 class RandomForestModel(Model):
     param_space = {
@@ -45,6 +50,13 @@ class RandomForestModel(Model):
     def predict(self, X):
         return self.model.predict(X)
     
+    def log_model(self, registered_model_name):
+        mlflow.sklearn.log_model(
+            sk_model=self.model,
+            artifact_path="model",
+            registered_model_name=registered_model_name
+        )
+    
 
 class LogisticRegressionModel(Model):
     def build_model(self, params: dict | None = None):
@@ -55,6 +67,13 @@ class LogisticRegressionModel(Model):
 
     def predict(self, X):
         return self.model.predict(X)
+    
+    def log_model(self, registered_model_name):
+        mlflow.sklearn.log_model(
+            sk_model=self.model,
+            artifact_path="model",
+            registered_model_name=registered_model_name
+        )
 
 
 class ModelFactory:
