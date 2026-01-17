@@ -1,12 +1,9 @@
 import pandas as pd
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from io import StringIO
-from datetime import datetime, timedelta
-import json 
-import joblib
 import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
 
@@ -24,7 +21,7 @@ async def lifespan(app: FastAPI):
     os.environ["MLFLOW_ALLOW_HTTP_REDIRECTS"] = "true"
 
     MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080")
-    MODEL_URI="models:/eur_usd_forex_direction_model/Production"
+    MODEL_URI="models:/eur_usd_direction_model/Production"
 
     print(f"Connecting to MLflow at {MLFLOW_TRACKING_URI}...")
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)

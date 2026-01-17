@@ -21,7 +21,7 @@ default_args = {
 }
 
 @dag(
-        dag_id="forex_pipeline_dag", 
+        dag_id="forex_etl_pipeline", 
         default_args=default_args,
         start_date=datetime(2025, 12, 23)
     )
