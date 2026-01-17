@@ -24,7 +24,7 @@ class Model(ABC):
         pass 
 
     @abstractmethod
-    def log_model(self, registered_model_name: str):
+    def log_model(self, signature, registered_model_name: str, input_example):
         pass
 
 class RandomForestModel(Model):
@@ -50,10 +50,12 @@ class RandomForestModel(Model):
     def predict(self, X):
         return self.model.predict(X)
     
-    def log_model(self, registered_model_name):
+    def log_model(self, signature, registered_model_name, input_example):
         mlflow.sklearn.log_model(
             sk_model=self.model,
             artifact_path="model",
+            signature=signature,
+            input_example=input_example,
             registered_model_name=registered_model_name
         )
     
@@ -68,10 +70,12 @@ class LogisticRegressionModel(Model):
     def predict(self, X):
         return self.model.predict(X)
     
-    def log_model(self, registered_model_name):
+    def log_model(self, signature, registered_model_name, input_example):
         mlflow.sklearn.log_model(
             sk_model=self.model,
             artifact_path="model",
+            signature=signature,
+            input_example=input_example,
             registered_model_name=registered_model_name
         )
 

@@ -63,6 +63,10 @@ def suggest_params(trial, param_space: dict):
     return params
 
 
+def evaluate(model, X_test, y_test):
+    preds = model.predict(X_test)
+    return precision_score(y_test, preds)
+
 ########################
 # SQL Query generators
 ########################

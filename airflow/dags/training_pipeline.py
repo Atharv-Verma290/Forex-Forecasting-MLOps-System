@@ -5,6 +5,7 @@ from data_preprocessing import ForexDataPreProcessing #type: ignore
 from utility import SQLTableBuilder, TrainTestTableStrategy #type: ignore
 from orchestrator import TrainingOrchestrator #type: ignore
 from model_tuning import OptunaModelTuner #type: ignore
+from model_promotion import ModelPromotionManager #type: ignore
 import psycopg2
 import psycopg2.extras as extras
 import pandas as pd
@@ -105,14 +106,23 @@ def forex_prediction_pipeline():
         return challenger_data
 
     @task 
-    def comparison_promotion(datasets):
-        pass
+    def model_promotion(datasets, challenger_data):
+        test_data = datasets["test_dataset"]
+        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+        print("Database connected successfully")
+        query = f"SELECT * FROM {test_data} ORDER BY datetime DESC;"
+        test_df = pd.read_sql(query, conn)
+        
+        manager = ModelPromotionManager(model_name=challenger_data["name"], test_df=test_df)
+        result = manager.promote_if_better()
+        print(result)
 
 
     datasets = data_preprocessing()
     best_model_data = model_training(datasets)
     tuned_model_data = hyperparameter_tuning(datasets, best_model_data)
     challenger_data = train_challenger(datasets, tuned_model_data)
+    model_promotion(datasets, challenger_data)
     
 prediction_pipeline = forex_prediction_pipeline()
 

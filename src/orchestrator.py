@@ -3,6 +3,7 @@ import pandas as pd
 import mlflow
 import os
 from mlflow.tracking import MlflowClient
+from mlflow.models import infer_signature
 
 from model_factory import ModelFactory
 from utility import cross_validate_model
@@ -32,13 +33,14 @@ class TrainingOrchestrator():
         classifier.fit(X, y)
 
         registered_model_name = "eur_usd_direction_model"
+        signature = infer_signature(X, y)
 
         with mlflow.start_run(run_name="train_challenger") as run:
             mlflow.log_params(model_data["best_hyperparameters"])
             mlflow.log_param("model_type", model_data["model_type"])
             mlflow.log_metric("train_precision_score", model_data["best_train_precision_score"])
 
-            classifier.log_model(registered_model_name)
+            classifier.log_model(signature=signature, registered_model_name=registered_model_name, input_example=X.head())
 
             run_id = run.info.run_id
 
