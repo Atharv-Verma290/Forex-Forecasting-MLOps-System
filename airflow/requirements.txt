@@ -6,3 +6,4 @@ twelvedata>=1.2.25
 psycopg2-binary>=2.9.11
 optuna>=4.6.0
 mlflow>=3.8.1
+sqlalchemy>=2.0.45

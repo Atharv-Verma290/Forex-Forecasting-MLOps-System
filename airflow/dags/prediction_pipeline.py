@@ -3,15 +3,14 @@ from airflow.sdk import dag, task
 from airflow.datasets import Dataset
 from dotenv import load_dotenv
 from utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
-import os
-import psycopg2
+from sqlalchemy import create_engine, text
 import psycopg2.extras as extras
 import pandas as pd
-import numpy as np
 import requests
 load_dotenv()
 
 EUR_USD_FINAL_DATASET = Dataset("postgres://app-postgres:5432/app_db/public/eur_usd_final")
+CONNECTION_URL = "postgresql://admin:admin@app-postgres:5432/app_db"
 
 default_args = {
     'owner': 'atharv',
@@ -32,11 +31,10 @@ def forex_prediction_pipeline():
     def predict_tomorrow():
         API_URL = "http://model-service:8000/predict_forex"
         try:
-            conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+            engine = create_engine(CONNECTION_URL)
             print("Database connected successfully")
             query = """SELECT * FROM eur_usd_final ORDER BY datetime DESC LIMIT 1;"""
-            input_df = pd.read_sql(query, conn)
-            conn.close()
+            input_df = pd.read_sql(query, engine)
             print("Input data retrieved: ", input_df)
 
             payload = {
@@ -46,6 +44,7 @@ def forex_prediction_pipeline():
             data = response.json()
             print("Got the model service response: ")
             print(data)
+
         except Exception as e:
             print(e)
         
@@ -53,14 +52,14 @@ def forex_prediction_pipeline():
     
     @task 
     def store_predictions(data):
-        conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="app-postgres", port="5432")
+        engine = create_engine(CONNECTION_URL)
 
         table_builder = SQLTableBuilder(PredictionTableStrategy(tablename="eur_usd_predictions"))
         creation_query = table_builder.get_create_query()
-        cur = conn.cursor()
-        cur.execute(creation_query)
+        with engine.connect() as conn:
+            conn.execute(text(creation_query))
         print("Table created successfully.")
-        
+
         record = {
             "feature_date": datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
             "prediction_date": next_forex_trading_day(datetime.strptime(data["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)),
@@ -68,12 +67,14 @@ def forex_prediction_pipeline():
             "model_name": data["model_name"],
             "model_version": data["model_version"]
         }
-    
+
         insertion_query, values = table_builder.get_insert_query(data=record)
+        raw_conn = engine.raw_connection()
+        cur = raw_conn.cursor()
         extras.execute_values(cur, insertion_query, values)
         print("Record(s) added to the database.")
-        conn.commit()
-        conn.close()
+        raw_conn.commit()
+        raw_conn.close()
 
         
     predictions = predict_tomorrow()

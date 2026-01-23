@@ -19,8 +19,8 @@ dependencies = [
     "schedule>=1.2.2",
     "scikit-learn>=1.8.0",
     "seaborn>=0.13.2",
+    "sqlalchemy>=2.0.45",
     "streamlit>=1.53.0",
-    "supabase>=2.27.0",
     "twelvedata>=1.2.25",
     "uvicorn>=0.38.0",
 ]
