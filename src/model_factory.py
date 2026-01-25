@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+import xgboost as xgb
 import mlflow.sklearn
 
 
@@ -98,6 +99,52 @@ class LogisticRegressionModel(Model):
         )
 
 
+class XGBoostModel(Model):
+    param_space = {
+        'n_estimators': ('int', 50, 300),         
+        'max_depth': ('int', 3, 6),               
+        'learning_rate': ('float', 0.005, 0.1),    
+        'subsample': ('float', 0.5, 1.0),         
+        'colsample_bytree': ('float', 0.5, 1.0),   
+        'gamma': ('float', 0.0, 0.5),                  
+        'min_child_weight': ('int', 1, 10),
+        'reg_alpha': ('float', 0.0, 0.1),
+        'reg_lambda': ('float', 0.0, 2.0)
+    }
+
+    default_params = {
+        "n_estimators": 200,
+        "max_depth": 4,
+        "min_child_weight": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+    }
+
+    def build_model(self, params: dict | None = None):
+        params = params or self.default_params
+        self.model = xgb.XGBClassifier(**params)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+    
+    def predict_proba(self, X):
+        return self.model.predict_proba(X)
+    
+    def log_model(self, signature, registered_model_name, input_example):
+        mlflow.xgboost.log_model(
+            xgb_model=self.model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+            registered_model_name=registered_model_name
+        )
+        
+
 class ModelFactory:
     @staticmethod
     def get_model(name: str, model_type: str):
@@ -106,6 +153,9 @@ class ModelFactory:
             
         elif model_type == "logistic_regression":
             model_instance = LogisticRegressionModel(name=name, model_type=model_type)
+
+        elif model_type == "xgboost_classifier":
+            model_instance = XGBoostModel(name=name, model_type=model_type)
 
         else:
             print(f"Unsupported model_type: {model_type}")

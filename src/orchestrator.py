@@ -76,6 +76,10 @@ class TrainingOrchestrator():
             {
                 'name': 'logistic regression',
                 'model_type': 'logistic_regression'
+            },
+            {
+                'name': 'xgboost model',
+                'model_type': 'xgboost_classifier'
             }
         ]
 
