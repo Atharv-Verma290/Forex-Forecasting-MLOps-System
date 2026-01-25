@@ -3,14 +3,14 @@ import mlflow
 import os
 from mlflow.tracking import MlflowClient
 from mlflow.data import from_pandas
-from sklearn.metrics import precision_score
+from sklearn.metrics import average_precision_score
 
 from utility import evaluate
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 
 class ModelPromotionManager:
-    def __init__(self, model_name: str, test_df: pd.DataFrame, metric_fn=precision_score):
+    def __init__(self, model_name: str, test_df: pd.DataFrame, metric_fn=average_precision_score):
         self.model_name = model_name
         self.test_df = test_df
         self.metric_fn = metric_fn
@@ -23,7 +23,7 @@ class ModelPromotionManager:
 
         with mlflow.start_run(run_name="model_promotion_evaluation"):
             challenger_score = evaluate(challenger["model"], X_test, y_test)
-            mlflow.log_metric("challenger_test_precision_score", challenger_score)
+            mlflow.log_metric("challenger_test_pr_auc_score", challenger_score)
 
             test_df = X_test.copy()
             test_df["target"] = y_test 
@@ -39,7 +39,7 @@ class ModelPromotionManager:
 
             if production:
                 production_score = evaluate(production["model"], X_test, y_test)
-                mlflow.log_metric("production_test_precision_score", production_score)
+                mlflow.log_metric("production_test_pr_auc_score", production_score)
             else:
                 production_score = None 
                 mlflow.log_param("production_model_exists", False)

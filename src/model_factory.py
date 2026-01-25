@@ -24,6 +24,10 @@ class Model(ABC):
         pass 
 
     @abstractmethod
+    def predict_proba(self, X):
+        pass
+
+    @abstractmethod
     def log_model(self, signature, registered_model_name: str, input_example):
         pass
 
@@ -50,6 +54,9 @@ class RandomForestModel(Model):
     def predict(self, X):
         return self.model.predict(X)
     
+    def predict_proba(self, X):
+        return self.model.predict_proba(X)
+    
     def log_model(self, signature, registered_model_name, input_example):
         mlflow.sklearn.log_model(
             sk_model=self.model,
@@ -69,6 +76,9 @@ class LogisticRegressionModel(Model):
 
     def predict(self, X):
         return self.model.predict(X)
+    
+    def predict_proba(self, X):
+        return self.model.predict_proba(X)
     
     def log_model(self, signature, registered_model_name, input_example):
         mlflow.sklearn.log_model(

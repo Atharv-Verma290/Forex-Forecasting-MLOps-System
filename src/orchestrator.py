@@ -38,7 +38,7 @@ class TrainingOrchestrator():
         with mlflow.start_run(run_name="train_challenger") as run:
             mlflow.log_params(model_data["best_hyperparameters"])
             mlflow.log_param("model_type", model_data["model_type"])
-            mlflow.log_metric("train_precision_score", model_data["best_train_precision_score"])
+            mlflow.log_metric("train_pr_auc_score", model_data["best_train_pr_auc_score"])
 
             classifier.log_model(signature=signature, registered_model_name=registered_model_name, input_example=X.head())
 
@@ -89,15 +89,15 @@ class TrainingOrchestrator():
 
             avg_score, std_score = cross_validate_model(classifier, X, y)
 
-            print(f"Avg CV Precision Score for {model["name"]}: {avg_score:.4f} ± {std_score:.4f}")
-            model["cv_precision_score"] = round(float(avg_score), 4)
+            print(f"Avg CV PR-AUC Score for {model["name"]}: {avg_score:.4f} ± {std_score:.4f}")
+            model["cv_pr_auc_score"] = round(float(avg_score), 4)
 
         return model_list
 
     def select_best(self, model_report: dict):
         best_model = model_report[0]
         for model in model_report:
-            if model["cv_precision_score"] > best_model["cv_precision_score"]:
+            if model["cv_pr_auc_score"] > best_model["cv_pr_auc_score"]:
                 best_model = model 
         return best_model
 

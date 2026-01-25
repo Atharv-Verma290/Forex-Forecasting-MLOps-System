@@ -45,7 +45,7 @@ class OptunaModelTuner(ModelTunerTemplate):
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler())
         study.optimize(objective_function, n_trials=50)
 
-        model_data["best_train_precision_score"] = study.best_trial.value
+        model_data["best_train_pr_auc_score"] = study.best_trial.value
         model_data["best_hyperparameters"] = study.best_trial.params
 
         return model_data
@@ -56,7 +56,7 @@ if __name__=="__main__":
     df["id"] = 100
     model_data = {"name": "random forest model", 
                   "model_type": "random_forest", 
-                  "cv_precision_score": 0.5470}
+                  "cv_pr_auc_score": 0.506}
 
     tuner = OptunaModelTuner(df, model_data)
     tuned_model_data = tuner.start_tuning()
