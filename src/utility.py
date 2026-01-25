@@ -63,8 +63,22 @@ def suggest_params(trial, param_space: dict):
     return params
 
 
+def get_predictors(df: pd.DataFrame):
+    vol_cols = [c for c in df.columns if 'vol_absmean_' in c]
+    hl_mean_cols = [c for c in df.columns if 'hl_range_mean_' in c]
+    cols_to_drop = [
+        "open", "high", "low", "close", 
+        "tomorrow", "target", 
+        "log_return", "abs_log_return", 
+        "hl_range", "large_move"
+    ] + vol_cols + hl_mean_cols
+    predictors = df.columns.drop(cols_to_drop, errors='ignore')
+    return list(predictors)
+
 def evaluate(model, X_test, y_test):
-    probs = model.predict_proba(X_test)
+    probs = model.predict(X_test)
+    if len(probs.shape) > 1 and probs.shape[1] > 1:
+        probs = probs[:, 1]
     return average_precision_score(y_test, probs)
 
 ########################

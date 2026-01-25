@@ -5,7 +5,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.data import from_pandas
 from sklearn.metrics import average_precision_score
 
-from utility import evaluate
+from utility import evaluate, get_predictors
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 
@@ -28,18 +28,19 @@ class ModelPromotionManager:
             test_df = X_test.copy()
             test_df["target"] = y_test 
 
-            test_dataset = from_pandas(
-                test_df,
-                source="eur_usd_test"
-            )
-            mlflow.log_input(
-                test_dataset,
-                context="testing"
-            )
+            test_dataset = from_pandas(test_df, source="eur_usd_test")
+            mlflow.log_input(test_dataset, context="testing")
 
             if production:
-                production_score = evaluate(production["model"], X_test, y_test)
-                mlflow.log_metric("production_test_pr_auc_score", production_score)
+                try: 
+                    production_score = evaluate(production["model"], X_test, y_test)
+                    mlflow.log_metric("production_test_pr_auc_score", production_score)
+                    mlflow.log_param("production_eval_status", "success")
+                except Exception as e:
+                    print(f"⚠️ Production evaluation failed (likely schema mismatch): {e}")
+                    production_score = -1.0
+                    mlflow.log_metric("production_test_pr_auc_score", 0.0)
+                    mlflow.log_param("production_eval_status", "failed_schema_mismatch")
             else:
                 production_score = None 
                 mlflow.log_param("production_model_exists", False)
@@ -69,7 +70,8 @@ class ModelPromotionManager:
         indexed_df = df.set_index("datetime")
         sorted_df = indexed_df.sort_index(ascending=True)
         ordered_df = sorted_df.drop(columns=["id"])
-        X = ordered_df.drop(columns=["tomorrow", "target"])
+        predictors = get_predictors(ordered_df)
+        X = ordered_df[predictors]
         y = ordered_df["target"]
         return X, y
 

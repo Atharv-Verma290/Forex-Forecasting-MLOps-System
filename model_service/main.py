@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -7,7 +8,7 @@ from io import StringIO
 import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
 
-import os
+from utils import get_predictors
 
 model_metadata = {
     "run_id": None,
@@ -57,13 +58,16 @@ class PredictionInput(BaseModel):
 async def predict(request: PredictionInput):
     input_df = pd.read_json(StringIO(request.input_data))
 
-    predictors = input_df.columns.drop(["id", "datetime"])
-    # model = joblib.load("forex_model.pkl")
+    input_df = input_df.drop(columns=["id"], errors='ignore')
+    input_df = input_df.set_index('datetime')
 
-    prediction = model.predict(input_df[predictors])
+    predictors = get_predictors(input_df)
+    X = input_df[predictors].astype("float64")
+
+    prediction = model.predict(X)
 
     output = {
-        "datetime": str(input_df["datetime"].iloc[0]), 
+        "datetime": str(input_df.index[0]), 
         "prediction": prediction[0].item(),
         "model_name": model_metadata["name"],
         "model_version": model_metadata["version"]

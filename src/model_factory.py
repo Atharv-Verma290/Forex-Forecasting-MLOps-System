@@ -68,8 +68,16 @@ class RandomForestModel(Model):
     
 
 class LogisticRegressionModel(Model):
+    param_space = {
+        'C': ('float', 1e-4, 10.0),       
+        'max_iter': ('int', 100, 500)   
+    }
+    
     def build_model(self, params: dict | None = None):
-        self.model = LogisticRegression()
+        if params:
+            self.model = LogisticRegression(**params)
+        else:
+            self.model = LogisticRegression()
 
     def fit(self, X, y):
         self.model.fit(X, y)

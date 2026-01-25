@@ -6,7 +6,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.models import infer_signature
 
 from model_factory import ModelFactory
-from utility import cross_validate_model
+from utility import cross_validate_model, get_predictors
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 
@@ -24,7 +24,7 @@ class TrainingOrchestrator():
     def train_challenger(self, model_data: dict):
         train_df = self.reorder_data(self.df)
 
-        predictors = train_df.columns.drop(["target", "tomorrow"])
+        predictors = get_predictors(train_df)
         X = train_df[predictors]
         y = train_df["target"]
 
@@ -79,7 +79,7 @@ class TrainingOrchestrator():
             }
         ]
 
-        predictors = df.columns.drop(["target", "tomorrow"])
+        predictors = get_predictors(df)
         X = df[predictors]
         y = df["target"]
 

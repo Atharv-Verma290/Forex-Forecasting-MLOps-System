@@ -3,7 +3,7 @@ from typing import Tuple
 import pandas as pd
 import optuna
 from model_factory import ModelFactory
-from utility import suggest_params, cross_validate_model
+from utility import suggest_params, cross_validate_model, get_predictors
 
 class ModelTunerTemplate(ABC):
     def __init__(self, df: pd.DataFrame, model_data: dict):
@@ -27,7 +27,8 @@ class ModelTunerTemplate(ABC):
 class OptunaModelTuner(ModelTunerTemplate):
     def prepare_data(self, df):
         clean_df = df.set_index("datetime").sort_index(ascending=True)
-        X = clean_df.drop(columns=["id", "tomorrow", "target"])
+        predictors = get_predictors(clean_df)
+        X = clean_df[predictors]
         y = clean_df["target"]
         return X, y
     
