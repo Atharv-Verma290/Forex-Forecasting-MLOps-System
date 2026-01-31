@@ -19,7 +19,7 @@ print("Table created successfully.")
 conn.commit()
 
 
-df = pd.read_csv("eur_usd_forex_data.csv")
+df = pd.read_csv("forex_sample_data.csv")
 print(df)
 
 cols = ("datetime", "open", "high", "low", "close")

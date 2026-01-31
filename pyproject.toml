@@ -1,7 +1,7 @@
 [project]
 name = "forex-forecasting"
 version = "0.1.0"
-description = "Add your description here"
+description = "Basic Datascience MLOps project for Forex Forecasting"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
