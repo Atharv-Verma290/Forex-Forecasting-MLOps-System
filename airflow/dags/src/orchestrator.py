@@ -5,8 +5,8 @@ import os
 from mlflow.tracking import MlflowClient
 from mlflow.models import infer_signature
 
-from model_factory import ModelFactory
-from utility import cross_validate_model, get_predictors
+from src.model_factory import ModelFactory
+from src.utility import cross_validate_model, get_predictors
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 

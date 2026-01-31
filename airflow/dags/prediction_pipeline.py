@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from airflow.sdk import dag, task 
 from airflow.datasets import Dataset
 from dotenv import load_dotenv
-from utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
+from src.utility import next_forex_trading_day, SQLTableBuilder, PredictionTableStrategy  #type: ignore
 from sqlalchemy import create_engine, text
 import psycopg2.extras as extras
 import pandas as pd

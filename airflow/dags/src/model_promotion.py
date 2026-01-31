@@ -5,7 +5,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.data import from_pandas
 from sklearn.metrics import average_precision_score
 
-from utility import evaluate, get_predictors
+from src.utility import evaluate, get_predictors
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 

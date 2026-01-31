@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 import pandas as pd
 import optuna
-from model_factory import ModelFactory
-from utility import suggest_params, cross_validate_model, get_predictors
+from src.model_factory import ModelFactory
+from src.utility import suggest_params, cross_validate_model, get_predictors
 
 class ModelTunerTemplate(ABC):
     def __init__(self, df: pd.DataFrame, model_data: dict):

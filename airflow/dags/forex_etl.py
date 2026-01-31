@@ -1,15 +1,13 @@
 from datetime import datetime, timedelta
 from airflow.sdk import dag, task
 from airflow.datasets import Dataset
-from data_ingestion import TwelveDataIngestor #type: ignore
-from data_transformation import ForexDataTransformation #type: ignore
-from utility import SQLTableBuilder, RawTableStrategy, StagingTableStrategy, FinalTableStrategy #type: ignore
-from dotenv import load_dotenv
+from src.data_ingestion import TwelveDataIngestor
+from src.data_transformation import ForexDataTransformation 
+from src.utility import SQLTableBuilder, RawTableStrategy, StagingTableStrategy, FinalTableStrategy 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import psycopg2.extras as extras
 import pandas as pd
-load_dotenv()
 
 EUR_USD_FINAL_DATASET = Dataset("postgres://app-postgres:5432/app_db/public/eur_usd_final")
 CONNECTION_URL = "postgresql://admin:admin@app-postgres:5432/app_db"
