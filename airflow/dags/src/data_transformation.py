@@ -3,10 +3,28 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 class DataTransformationTemplate(ABC):
+    """
+    Abstract base class defining the skeletal structure for data transformation.
+
+    Args:
+        df (pd.DataFrame): The input dataframe to be transformed.
+
+    Methods:
+        apply_transformation: Orchestrates the pipeline execution order.
+        reorder_data: Abstract method for data type and index normalization.
+        derive_indicators: Abstract method for feature engineering.
+        clean_data: Abstract method for handling missing values and duplicates.
+    """
     def __init__(self, df):
         self.df = df
 
     def apply_transformation(self) -> pd.DataFrame:
+        """
+        Executes the transformation steps in a fixed algorithmic sequence.
+
+        Returns:
+            pd.DataFrame: The final processed dataset.
+        """
         raw_df = self.reorder_data(self.df)
         transformed_df = self.derive_indicators(raw_df)
         cleaned_df = self.clean_data(transformed_df)
@@ -14,20 +32,46 @@ class DataTransformationTemplate(ABC):
 
     @abstractmethod
     def reorder_data(self, df):
+        """
+        Normalizes types and structure. Implementation required by subclass.
+        """
         pass 
 
     @abstractmethod
     def derive_indicators(self, df):
+        """
+        Applies domain-specific logic. Implementation required by subclass.
+        """
         pass 
 
     @abstractmethod
     def clean_data(self, df):
+        """
+        Finalizes dataset for output. Implementation required by subclass.
+        """
         pass 
 
 
-class ForexDataTransformation(DataTransformationTemplate):
-    def reorder_data(self, df: pd.DataFrame):
 
+class ForexDataTransformation(DataTransformationTemplate):
+    """
+    Concrete implementation for cleaning and generating features from Forex price data.
+
+    Methods:
+        reorder_data(df): Standardizes datatypes, sets datetime index, and sorts chronologically.
+        derive_indicators(df): Calculates volatility metrics, rolling averages, and Z-scores.
+        clean_data(df): Removes null values and duplicates before final output.
+    """
+    def reorder_data(self, df: pd.DataFrame):
+        """
+        Standardizes the DataFrame structure for time-series analysis.
+
+        Args:
+            df (pd.DataFrame): Raw input data from the database.
+
+        Returns:
+            pd.DataFrame: Processed DataFrame with a sorted DatetimeIndex.
+        """
         if "datetime" in df.columns:
             df["datetime"] = pd.to_datetime(df["datetime"], errors="raise")
         
@@ -40,7 +84,17 @@ class ForexDataTransformation(DataTransformationTemplate):
         df = df.sort_index(ascending=True)
         return df
 
+
     def derive_indicators(self, df: pd.DataFrame):
+        """
+        Performs feature engineering to generate volatility and momentum indicators.
+
+        Args:
+            df (pd.DataFrame): The reordered price data.
+
+        Returns:
+            pd.DataFrame: DataFrame enriched with log returns, rolling volatility, and Z-scores.
+        """
         df = df.copy()
         df['log_return'] = np.log(df['close'])
         df['abs_log_return'] = df['log_return'].abs()
@@ -69,7 +123,17 @@ class ForexDataTransformation(DataTransformationTemplate):
         df['large_move_count_20'] = df['large_move'].rolling(20).sum()
         return df
     
+    
     def clean_data(self, df: pd.DataFrame):
+        """
+        Finalizes the dataset by removing incomplete rows resulting from rolling windows.
+
+        Args:
+            df (pd.DataFrame): The feature-enriched DataFrame.
+
+        Returns:
+            pd.DataFrame: A clean, indexed DataFrame ready for staging.
+        """
         df = df.dropna()
         df = df.drop_duplicates()
         df = df.reset_index()

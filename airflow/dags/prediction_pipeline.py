@@ -26,9 +26,21 @@ default_args = {
         catchup=False
     )
 def forex_prediction_pipeline():
-
+    """
+    Model prediction pipeline dag. Runs the prediction pipeline and stores the model predictions in database.
+    """
     @task
     def predict_tomorrow():
+        """
+        Fetches the latest processed data and requests a forecast from the model service.
+
+        Args:
+            None
+
+        Returns:
+            dict: The JSON response from the model service containing predictions 
+                and metadata.
+        """
         API_URL = "http://model-service:8000/predict_forex"
         try:
             engine = create_engine(CONNECTION_URL)
@@ -52,6 +64,16 @@ def forex_prediction_pipeline():
     
     @task 
     def store_predictions(data):
+        """
+        Parses model inference results and stores them in the predictions table.
+
+        Args:
+            data (dict): The dictionary response from the model service containing 
+                        prediction values and metadata.
+
+        Returns:
+            None
+        """
         engine = create_engine(CONNECTION_URL)
 
         table_builder = SQLTableBuilder(PredictionTableStrategy(tablename="eur_usd_predictions"))

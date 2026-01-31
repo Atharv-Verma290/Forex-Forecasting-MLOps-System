@@ -10,6 +10,12 @@ load_dotenv()
 # Database connection
 # -----------------------------
 def get_connection():
+    """
+    Establishes a connection to the PostgreSQL database using environment variables.
+
+    Returns:
+        psycopg2.extensions.connection: An active database connection object.
+    """
     return psycopg2.connect(
         host=os.environ["DB_HOST"],      
         port=os.environ["DB_PORT"],      
@@ -19,6 +25,15 @@ def get_connection():
     )
 
 def load_df(query: str) -> pd.DataFrame:
+    """
+    Executes a SQL query and returns the result as a pandas DataFrame.
+
+    Args:
+        query (str): The SQL query string to execute.
+
+    Returns:
+        pd.DataFrame: The resulting dataset from the database.
+    """
     with get_connection() as conn:
         return pd.read_sql(query, conn)
 
@@ -149,6 +164,15 @@ comparison["Result"] = comparison["correct"].map({
 
 
 def highlight_result(row):
+    """
+    Applies conditional row styling for Pandas Styler objects.
+
+    Args:
+        row (pd.Series): A single row from the DataFrame.
+
+    Returns:
+        list: CSS background-color strings corresponding to the result status.
+    """
     if row["Result"] == "✅ Correct":
         return ["background-color: #d4edda"] * len(row)
     else:

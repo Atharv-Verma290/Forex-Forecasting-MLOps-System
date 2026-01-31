@@ -26,9 +26,21 @@ default_args = {
         start_date=datetime(2026, 1, 12)
     )
 def forex_prediction_pipeline():
-
+    """
+    Model training pipeline dag. Trains new models and compare with production model and promote the best model.
+    """
     @task(multiple_outputs=True)
     def data_preprocessing():
+        """
+        Orchestrates the preparation and storage of training and testing datasets.
+
+        Args:
+            None
+
+        Returns:
+            dict: A mapping of the created table names (e.g., {'train_dataset': 'eur_usd_train', ...}) 
+                or None if an error occurs.
+        """
         try:
             engine = create_engine(CONNECTION_URL)
             print("Database connected successfully")
@@ -72,6 +84,16 @@ def forex_prediction_pipeline():
 
     @task(multiple_outputs=True)
     def model_training(datasets):
+        """
+        Loads training data from the database and executes the model training pipeline.
+
+        Args:
+            datasets (dict): A dictionary containing the 'train_dataset' table name.
+
+        Returns:
+            dict: A dictionary containing the best model's performance metrics, 
+                parameters, and metadata.
+        """
         train_data = datasets["train_dataset"]
         engine = create_engine(CONNECTION_URL)
         print("Database connected successfully")
@@ -85,6 +107,18 @@ def forex_prediction_pipeline():
         
     @task(multiple_outputs=True)
     def hyperparameter_tuning(datasets, best_model_data):
+        """
+        Performs hyperparameter optimization on the selected model.
+
+        Args:
+            datasets (dict): Dictionary containing the 'train_dataset' table name.
+            best_model_data (dict): Metadata and configuration of the model selected 
+                                    for tuning.
+
+        Returns:
+            dict: A report containing the optimized hyperparameters and updated 
+                model metrics.
+        """
         train_data = datasets["train_dataset"]
         engine = create_engine(CONNECTION_URL)
         print("Database connected successfully")
@@ -99,6 +133,18 @@ def forex_prediction_pipeline():
     
     @task(multiple_outputs=True)
     def train_challenger(datasets, tuned_model_data):
+        """
+        Trains a final 'challenger' model using the optimized hyperparameters.
+
+        Args:
+            datasets (dict): Dictionary containing the 'train_dataset' table name.
+            tuned_model_data (dict): The optimized hyperparameter configuration 
+                                    retrieved from the tuning phase.
+
+        Returns:
+            dict: A dictionary containing the challenger model's path, 
+                performance metrics, and metadata.
+        """
         train_data = datasets["train_dataset"]
         engine = create_engine(CONNECTION_URL)
         query = f"SELECT * FROM {train_data} ORDER BY datetime DESC;"
@@ -112,6 +158,16 @@ def forex_prediction_pipeline():
     
     @task 
     def model_promotion(datasets, challenger_data):
+        """
+        Evaluates the challenger model against the current champion and promotes if superior.
+
+        Args:
+            datasets (dict): Dictionary containing the 'test_dataset' table name.
+            challenger_data (dict): Metadata and performance metrics for the candidate model.
+
+        Returns:
+            None: Updates the model registry or production alias via ModelPromotionManager.
+        """
         test_data = datasets["test_dataset"]
         engine = create_engine(CONNECTION_URL)
         print("Database connected successfully")

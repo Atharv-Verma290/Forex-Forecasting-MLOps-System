@@ -24,9 +24,17 @@ default_args = {
         start_date=datetime(2025, 12, 23)
     )
 def forex_etl_pipeline():
-
+    """
+    ETL pipeline dag. Runs the ETL pipeline and stores the results in database.
+    """
     @task
     def extract_data():
+        """
+        Airflow task for extracting EUR/USD forex data and stores it in database.
+
+        Returns:
+            str: The name of the raw database table ('eur_usd_raw')
+        """
         data_ingestor = TwelveDataIngestor()
         extracted_data = data_ingestor.ingest(symbol="EUR/USD")
 
@@ -57,6 +65,15 @@ def forex_etl_pipeline():
 
     @task
     def transform_data(raw_table):
+        """
+        Reads raw forex data, applies transformations, and loads it into a staging table.
+
+        Args:
+            raw_table (str): The name of the source database table containing raw data.
+
+        Returns:
+            str: The name of the target staging table ('eur_usd_staging').
+        """
         engine = create_engine(CONNECTION_URL)
         print("Database connected successfully.")
 
@@ -96,6 +113,15 @@ def forex_etl_pipeline():
 
     @task(outlets=[EUR_USD_FINAL_DATASET]) 
     def load_data(staging_table):
+        """
+        Moves data from the staging area to the final production table.
+
+        Args:
+            staging_table (str): The name of the staging table containing transformed data.
+
+        Returns:
+            None
+        """
         engine = create_engine(CONNECTION_URL)
         print("Database connected successfully.")
 

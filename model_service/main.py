@@ -18,6 +18,20 @@ model_metadata = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Manages the FastAPI application lifecycle and global model state.
+
+    On startup, this function configures the MLflow environment, connects to the 
+    tracking server, and attempts to load the current 'Production' model into memory. 
+    It also populates global metadata by cross-referencing the loaded model's 
+    run ID with the MLflow Model Registry.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+
+    Yields:
+        None: Control is yielded back to the FastAPI framework to start the server.
+    """
     os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "60"
     os.environ["MLFLOW_ALLOW_HTTP_REDIRECTS"] = "true"
 
@@ -52,10 +66,29 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 class PredictionInput(BaseModel):
+    """
+    Schema for incoming prediction requests.
+
+    Attributes:
+        input_data (str): JSON-serialized string containing the feature set.
+    """
     input_data: str 
 
 @app.post("/predict_forex")
 async def predict(request: PredictionInput):
+    """
+    Processes features and returns a model prediction.
+
+    Converts the input JSON string into a DataFrame, standardizes the index 
+    and feature set, and executes a prediction using the global champion model.
+
+    Args:
+        request (PredictionInput): The container for the raw input data.
+
+    Returns:
+        JSONResponse: A dictionary containing the prediction, timestamp, 
+                      and source model metadata.
+    """
     input_df = pd.read_json(StringIO(request.input_data))
 
     input_df = input_df.drop(columns=["id"], errors='ignore')

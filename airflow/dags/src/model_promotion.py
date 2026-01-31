@@ -10,6 +10,24 @@ from src.utility import evaluate, get_predictors
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5080"))
 
 class ModelPromotionManager:
+    """
+    Orchestrates the lifecycle transition of models between 'Challenger' and 'Production' states.
+
+    Attributes:
+        model_name (str): The registered name of the model in the MLflow Registry.
+        test_df (pd.DataFrame): The dataset used for final performance validation.
+        metric_fn (callable): The scoring function used for evaluation (default: PR-AUC).
+        client (MlflowClient): The interface to the MLflow Tracking and Registry server.
+
+    Methods:
+        promote_if_better(): Main entry point. Compares Challenger vs. Production and executes promotion.
+        prepare_test_data(df): Cleans and sorts the test dataframe, separating features from the target.
+        load_model_by_version(version): Retrieves a specific PyFunc model instance from the MLflow registry.
+        load_challenger_model(): Finds and loads the latest model version tagged as a 'challenger'.
+        load_production_model(): Finds and loads the model version currently in the 'Production' stage.
+        promote_challenger(challenger, production): Performs the MLflow stage transitions to swap the champion for the challenger.
+        archive_challenger(challenger): Moves a rejected challenger to the 'Archived' stage.
+    """
     def __init__(self, model_name: str, test_df: pd.DataFrame, metric_fn=average_precision_score):
         self.model_name = model_name
         self.test_df = test_df
@@ -17,6 +35,17 @@ class ModelPromotionManager:
         self.client = MlflowClient()
 
     def promote_if_better(self):
+        """
+        Decides on the production model promotion.
+
+        This method loads the current champion and the new challenger, evaluates both 
+        against a held-out test dataset, and logs the results to a specialized 
+        MLflow evaluation run. If the challenger outperforms the champion (or if 
+        no champion exists), it triggers the promotion sequence.
+
+        Returns:
+            str: A message indicating whether the challenger was promoted or archived.
+        """
         X_test, y_test = self.prepare_test_data(self.test_df)
         challenger = self.load_challenger_model()
         production = self.load_production_model()
@@ -67,6 +96,21 @@ class ModelPromotionManager:
             return "production model retained"    
 
     def prepare_test_data(self, df: pd.DataFrame):
+        """
+        Standardizes the test dataset for the final champion-challenger evaluation.
+
+        This method ensures the test data is sorted chronologically, removes 
+        non-predictive columns, and separates features from the target labels 
+        to provide a consistent benchmark for model comparison.
+
+        Args:
+            df (pd.DataFrame): The raw test dataset (e.g., the last 500 rows 
+                            from the preprocessing split).
+
+        Returns:
+            Tuple[pd.DataFrame, pd.Series]: A tuple containing the feature 
+                                            matrix (X) and target vector (y).
+        """
         indexed_df = df.set_index("datetime")
         sorted_df = indexed_df.sort_index(ascending=True)
         ordered_df = sorted_df.drop(columns=["id"])
@@ -76,10 +120,32 @@ class ModelPromotionManager:
         return X, y
 
     def load_model_by_version(self, version: str):
+        """
+        Loads a specific model version from the MLflow Registry.
+
+        Args:
+            version (str): The version number/string to retrieve.
+
+        Returns:
+            PyFuncModel: The executable MLflow model wrapper.
+        """
         model_uri = f"models:/{self.model_name}/{version}"
         return mlflow.pyfunc.load_model(model_uri)
     
     def load_challenger_model(self):
+        """
+        Identifies and loads the most recent model version tagged as a 'challenger'.
+
+        This method filters the model registry for versions that have not yet been 
+        assigned a stage and carry the 'candidate=challenger' tag. If multiple 
+        challengers exist, it selects the one with the highest version number.
+
+        Returns:
+            dict: Metadata and the loaded model object for the challenger.
+
+        Raises:
+            RuntimeError: If no model matching the challenger criteria is found.
+        """
         versions = self.client.search_model_versions(f"name='{self.model_name}'")
 
         challengers = [
@@ -102,6 +168,21 @@ class ModelPromotionManager:
         }
 
     def load_production_model(self):
+        """
+        Retrieves the current 'Production' model instance and its metadata from MLflow.
+
+        This method queries the Model Registry for the version currently tagged with 
+        the 'Production' stage. If found, it loads the model artifact into memory 
+        along with its version and run identification.
+
+        Returns:
+            dict: A dictionary containing:
+                - 'model': The loaded model object (e.g., XGBoost, RandomForest).
+                - 'model_name': The string name of the registered model.
+                - 'model_version': The specific version string/number.
+                - 'run_id': The MLflow run ID associated with the version.
+            None: If no model is currently assigned to the 'Production' stage.
+        """
         prod_versions = self.client.get_latest_versions(name=self.model_name, stages=["Production"])
 
         if not prod_versions:
@@ -119,6 +200,17 @@ class ModelPromotionManager:
         } 
     
     def promote_challenger(self, challenger, production):
+        """
+        Promotes the challenger model to Production and archives the current champion.
+
+        This method handles the MLflow stage transitions: moving the existing 
+        Production model to 'Archived', promoting the new version to 'Production', 
+        and updating the metadata tag from 'challenger' to 'champion'.
+
+        Args:
+            challenger (dict): Metadata for the candidate model (version and name).
+            production (dict): Metadata for the existing production model (can be None).
+        """
         if production:
             self.client.transition_model_version_stage(
                 name=production["model_name"],
@@ -141,6 +233,12 @@ class ModelPromotionManager:
         print(f"Promoted version {challenger["model_version"]} to Production")
 
     def archive_challenger(self, challenger):
+        """
+        Decommissions a challenger model that failed the promotion criteria.
+
+        Args:
+            challenger (dict): Metadata for the candidate model to be archived.
+        """
         self.client.transition_model_version_stage(
             name=challenger["model_name"],
             version=challenger["model_version"],

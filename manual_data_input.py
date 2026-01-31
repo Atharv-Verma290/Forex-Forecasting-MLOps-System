@@ -1,7 +1,6 @@
 import psycopg2
 import psycopg2.extras as extras
 import pandas as pd 
-from datetime import datetime, timedelta 
 
 conn = psycopg2.connect(database="app_db", user="admin", password="admin", host="localhost", port=5433)
 query = """
