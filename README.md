@@ -207,6 +207,7 @@ Once the containers are healthy, the following interfaces are available:
 - Model drift detection
 - Alerts on performance degradation
 - CI/CD for DAGs and services
+- Addition of more Forex pairs
 
 ---
 
